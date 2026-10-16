@@ -1,0 +1,649 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Flight Duty Roster</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- html2canvas for Exporting PNG Images -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background-color: #f1f5f9;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        /* Fully Visible Task-based Text Styles */
+        .task-item {
+            display: inline-block !important;
+            padding: 2px 0 !important;
+            line-height: 1.4 !important;
+        }
+
+        .text-checking { color: #00b0f0 !important; font-weight: 800 !important; }
+        .text-arrival { color: #22c55e !important; font-weight: 800 !important; }
+        .text-hold { color: #ed7d31 !important; font-weight: 800 !important; }
+        .text-clean { color: #7c2d12 !important; font-weight: 800 !important; }
+        .text-off { color: #ef4444 !important; font-weight: 900 !important; }
+        .text-bt2 { color: #5b9bd5 !important; font-weight: 800 !important; }
+        .text-bt3 { color: #7030a0 !important; font-weight: 800 !important; }
+        .text-gpu { color: #548235 !important; font-weight: 800 !important; }
+        .text-otherv { color: #64748b !important; font-weight: 800 !important; }
+        .text-sl { color: #ca8a04 !important; font-weight: 800 !important; }
+        .text-al { color: #a855f7 !important; font-weight: 800 !important; }
+        .text-frl { color: #0891b2 !important; font-weight: 800 !important; }
+        .text-ot { color: #e11d48 !important; font-weight: 900 !important; }
+        .text-duty { color: #475569 !important; font-weight: 700 !important; }
+
+        /* Highlight style for inactive/off tasks (FRL, AL, SL, OFF) */
+        .staff-inactive {
+            color: #ef4444 !important;
+            font-weight: 900 !important;
+        }
+
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+</head>
+<body class="pb-28 text-slate-900">
+
+    <!-- Top Navigation Header -->
+    <header class="sticky top-0 z-40 bg-slate-900 text-white px-3 py-2.5 shadow-md flex justify-between items-center border-b border-slate-800">
+        <div class="flex items-center gap-2">
+            <div class="w-7 h-7 rounded-lg bg-emerald-600 flex items-center justify-center font-black text-xs text-white shadow-inner">
+                <i class="fa-solid fa-plane-arrival"></i>
+            </div>
+            <div>
+                <h1 class="text-xs font-black tracking-wide leading-none">Flight Duty Roster</h1>
+                <div class="flex items-center gap-1.5 mt-0.5">
+                    <span id="modeBadge" class="text-[9px] px-1.5 py-0.5 rounded font-black uppercase tracking-wider bg-blue-600 text-white">Admin</span>
+                </div>
+            </div>
+        </div>
+
+        <div>
+            <button id="toggleAdminBtn" onclick="toggleMode()" class="px-2.5 py-1 bg-slate-800 active:bg-slate-700 border border-slate-700 text-slate-200 text-xs font-bold rounded-lg flex items-center gap-1.5 shadow-sm">
+                <i class="fa-solid fa-lock text-amber-400"></i> <span id="toggleAdminText">Staff View</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- Read-Only Staff Banner -->
+    <div id="readOnlyBanner" class="hidden max-w-[390px] mx-auto mt-2 px-2">
+        <div class="bg-blue-900/90 text-blue-100 text-xs px-3 py-2 rounded-xl flex items-center justify-between border border-blue-700/60 shadow-sm">
+            <div class="flex items-center gap-2">
+                <i class="fa-solid fa-shield-halved text-blue-300 text-sm"></i>
+                <span class="font-medium text-[11px]"><strong>Read-Only View:</strong> Editing is disabled.</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Mobile Content Card Container (iPhone Optimized width) -->
+    <main class="max-w-[390px] mx-auto px-2 mt-2.5 space-y-3">
+
+        <!-- Exportable Document Wrapper -->
+        <div id="rosterExportCard" class="bg-white rounded-2xl shadow-md border border-slate-300 overflow-hidden p-3 space-y-3">
+
+            <!-- Top Flight Header Box -->
+            <div class="bg-slate-900 text-white rounded-xl p-2.5 shadow-sm border border-slate-800 space-y-2">
+                <div class="flex justify-between items-center pb-2 border-b border-slate-700/80">
+                    <div class="flex-1 pr-2">
+                        <span class="text-[8px] uppercase tracking-wider text-slate-400 font-extrabold block">Flight Detail</span>
+                        <input type="text" id="flightCode" value="Q2106/7 ATR" oninput="syncHeaderInputs()" class="admin-input bg-slate-800 text-yellow-300 font-black text-sm w-full rounded px-1.5 py-0.5 outline-none border border-slate-700">
+                        <div id="staffFlightCode" class="staff-text hidden text-yellow-300 font-black text-sm">Q2106/7 ATR</div>
+                    </div>
+                    <div class="w-16 text-right">
+                        <span class="text-[8px] uppercase tracking-wider text-slate-400 font-extrabold block">Flight No.</span>
+                        <input type="text" id="flightNoMain" value="02" oninput="syncHeaderInputs()" class="admin-input bg-slate-800 text-white font-black text-sm text-right w-full rounded px-1.5 py-0.5 outline-none border border-slate-700">
+                        <div id="staffFlightNoMain" class="staff-text hidden text-white font-black text-sm text-right">02</div>
+                    </div>
+                </div>
+
+                <!-- Yellow Officer Box -->
+                <div class="bg-[#fff2cc] text-slate-900 rounded-lg p-2 space-y-1.5 border border-amber-300">
+                    <div>
+                        <span class="text-[8px] uppercase tracking-wider text-amber-800/80 font-black block">Date & Day</span>
+                        <input type="text" id="flightDate" value="" oninput="syncHeaderInputs()" class="admin-input bg-white/80 text-black font-extrabold text-[11px] w-full rounded px-1.5 py-0.5 outline-none border border-amber-300">
+                        <div id="staffFlightDate" class="staff-text hidden text-black font-extrabold text-[11px]"></div>
+                    </div>
+
+                    <!-- Officers Dynamic Container -->
+                    <div class="pt-1 border-t border-amber-300/80 space-y-1">
+                        <div class="flex justify-between items-center">
+                            <span class="text-[9px] uppercase font-black text-amber-900 tracking-wider">Officers / Assts</span>
+                            <button onclick="addOfficer()" class="admin-btn bg-amber-600 hover:bg-amber-700 text-white text-[9px] font-bold px-1.5 py-0.5 rounded flex items-center gap-1 shadow-sm">
+                                <i class="fa-solid fa-plus text-[8px]"></i> Add Officer
+                            </button>
+                        </div>
+                        <div id="officersList" class="space-y-1"></div>
+                    </div>
+                </div>
+
+                <!-- Duty & Checking Times -->
+                <div class="grid grid-cols-2 gap-1.5 text-xs">
+                    <div class="bg-yellow-400 text-black font-black rounded-lg p-1 text-center border border-yellow-500">
+                        <span class="text-[8px] uppercase tracking-wider block text-black/70">Duty Time</span>
+                        <input type="text" id="dutyTime" value="16:00" oninput="syncHeaderInputs()" class="admin-input bg-yellow-300 text-red-600 font-black text-xs text-center w-full rounded outline-none border border-yellow-500">
+                        <div id="staffDutyTime" class="staff-text hidden text-red-600 font-black text-xs">16:00</div>
+                    </div>
+                    <div class="bg-sky-500 text-white font-black rounded-lg p-1 text-center border border-sky-600">
+                        <span class="text-[8px] uppercase tracking-wider block text-sky-100">Checking Time</span>
+                        <input type="text" id="checkingTime" value="18:10" oninput="syncHeaderInputs()" class="admin-input bg-sky-600 text-white font-black text-xs text-center w-full rounded outline-none border border-sky-400">
+                        <div id="staffCheckingTime" class="staff-text hidden text-white font-black text-xs">18:10</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Note Banner -->
+            <div class="bg-amber-50 border border-amber-200 rounded-xl p-2 text-amber-900 text-[11px] font-semibold flex items-center gap-2">
+                <i class="fa-solid fa-circle-info text-amber-600 text-xs shrink-0"></i>
+                <input type="text" id="noteText" value="Note: All handlers have to involve flight Checking time" oninput="syncHeaderInputs()" class="admin-input bg-transparent text-[11px] font-extrabold text-red-600 w-full outline-none">
+                <div id="staffNoteText" class="staff-text hidden text-[11px] font-extrabold text-red-600">Note: All handlers have to involve flight Checking time</div>
+            </div>
+
+            <!-- Handlers Section -->
+            <div>
+                <div class="flex items-center justify-between mb-1.5">
+                    <div class="flex items-center gap-1.5">
+                        <span class="w-2.5 h-2.5 rounded-full bg-black"></span>
+                        <h2 class="font-black text-[11px] text-slate-900 uppercase tracking-wide">Handlers</h2>
+                        <span id="handlersCount" class="inline-flex items-center justify-center w-4 h-4 text-[10px] font-bold bg-slate-100 text-slate-700 rounded-full">0</span>
+                    </div>
+                    <button onclick="addStaff('handlers')" class="admin-btn bg-black active:bg-slate-800 text-white text-[10px] font-bold px-2 py-0.5 rounded-lg flex items-center gap-1">
+                        <i class="fa-solid fa-plus text-[8px]"></i> Add Handler
+                    </button>
+                </div>
+                <div id="handlersList" class="space-y-1.5"></div>
+            </div>
+
+            <!-- Operators Section -->
+            <div class="pt-0.5">
+                <div class="flex items-center justify-between mb-1.5">
+                    <div class="flex items-center gap-1.5">
+                        <span class="w-2.5 h-2.5 rounded-full bg-black"></span>
+                        <h2 class="font-black text-[11px] text-slate-900 uppercase tracking-wide">Operators</h2>
+                        <span id="operatorsCount" class="inline-flex items-center justify-center w-4 h-4 text-[10px] font-bold bg-slate-100 text-slate-700 rounded-full">0</span>
+                    </div>
+                    <button onclick="addStaff('operators')" class="admin-btn bg-black active:bg-slate-800 text-white text-[10px] font-bold px-2 py-0.5 rounded-lg flex items-center gap-1">
+                        <i class="fa-solid fa-plus text-[8px]"></i> Add Operator
+                    </button>
+                </div>
+                <div id="operatorsList" class="space-y-1.5"></div>
+            </div>
+
+        </div>
+
+        <!-- Export Option Card -->
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-3 space-y-2">
+            <h3 class="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                <i class="fa-solid fa-download text-emerald-600"></i> Export Option
+            </h3>
+            <div class="grid grid-cols-1 gap-2">
+                <button onclick="exportImage()" class="w-full bg-blue-600 active:bg-blue-700 text-white font-extrabold text-xs py-2.5 rounded-xl shadow-sm flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-image"></i> Save Screen Image to Gallery
+                </button>
+            </div>
+
+            <!-- Admin Controls -->
+            <div class="admin-btn border-t border-slate-100 pt-2 grid grid-cols-2 gap-2">
+                <button onclick="saveRoster()" class="bg-slate-800 active:bg-slate-900 text-white font-bold text-xs py-2 rounded-lg flex items-center justify-center gap-1.5">
+                    <i class="fa-solid fa-floppy-disk"></i> Save Draft
+                </button>
+                <button onclick="resetRoster()" class="bg-rose-50 border border-rose-200 text-rose-600 active:bg-rose-100 font-bold text-xs py-2 rounded-lg flex items-center justify-center gap-1.5">
+                    <i class="fa-solid fa-rotate-right"></i> Reset
+                </button>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="fixed bottom-5 left-1/2 -translate-x-1/2 z-50 transform translate-y-20 opacity-0 transition-all duration-300 bg-slate-900 text-white px-4 py-2 rounded-full shadow-2xl flex items-center gap-2 text-xs border border-slate-700 w-11/12 max-w-xs justify-center">
+        <i id="toastIcon" class="fa-solid fa-circle-check text-emerald-400 text-sm"></i>
+        <span id="toastMsg" class="font-bold">Action completed!</span>
+    </div>
+
+    <!-- Application Script -->
+    <script>
+        const handlerRoles = [
+            { id: 'OFF', label: 'OFF', class: 'text-off' },
+            { id: 'Checking', label: 'Checking', class: 'text-checking' },
+            { id: 'Arrivals', label: "Arrival's", class: 'text-arrival' },
+            { id: 'Hold', label: 'Hold', class: 'text-hold' },
+            { id: 'Clean', label: 'Clean', class: 'text-clean' },
+            { id: 'SL', label: 'SL', class: 'text-sl' },
+            { id: 'AL', label: 'AL', class: 'text-al' },
+            { id: 'FRL', label: 'FRL', class: 'text-frl' },
+            { id: 'OT', label: 'OT', class: 'text-ot' }
+        ];
+
+        const operatorRoles = [
+            { id: 'OFF', label: 'OFF', class: 'text-off' },
+            { id: 'BT2', label: 'BT2', class: 'text-bt2' },
+            { id: 'BT3', label: 'BT3', class: 'text-bt3' },
+            { id: 'GPU', label: 'GPU', class: 'text-gpu' },
+            { id: 'OtherV', label: 'Other v', class: 'text-otherv' },
+            { id: 'SL', label: 'SL', class: 'text-sl' },
+            { id: 'AL', label: 'AL', class: 'text-al' },
+            { id: 'FRL', label: 'FRL', class: 'text-frl' },
+            { id: 'OT', label: 'OT', class: 'text-ot' }
+        ];
+
+        // Generate Current Date String Automatically e.g. "16 OCTOBER 2026 ( FRIDAY )"
+        function getCurrentFormattedDate() {
+            const now = new Date();
+            const dayNames = ["SUNDAY", "MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY"];
+            const monthNames = ["JANUARY", "FEBRUARY", "MARCH", "APRIL", "MAY", "JUNE", "JULY", "AUGUST", "SEPTEMBER", "OCTOBER", "NOVEMBER", "DECEMBER"];
+            
+            const dayName = dayNames[now.getDay()];
+            const monthName = monthNames[now.getMonth()];
+            const dayNum = String(now.getDate()).padStart(2, '0');
+            const year = now.getFullYear();
+
+            return `${dayNum} ${monthName} ${year} ( ${dayName} )`;
+        }
+
+        const defaultData = {
+            flightCode: "Q2106/7 ATR",
+            flightNoMain: "02",
+            flightDate: getCurrentFormattedDate(),
+            dutyTime: "16:00",
+            checkingTime: "18:10",
+            officers: [
+                { roleTitle: "Ramp Officer", name: "Ahmed Ashfaq" },
+                { roleTitle: "Asst Ramp Officer", name: "Ibrahim Shaah" },
+                { roleTitle: "Asst Ramp Officer", name: "Amsad Najmy" }
+            ],
+            noteText: "Note: All handlers have to involve flight Checking time",
+            handlers: [
+                { id: 101, name: "Ahmed Saeed", activeRoles: ["Checking"], customNote: "18:10" },
+                { id: 102, name: "Mohamed Ihsaan", activeRoles: ["Checking"], customNote: "" },
+                { id: 103, name: "Mohamed Siman", activeRoles: ["OFF"], customNote: "" },
+                { id: 104, name: "Ismail Riyaas", activeRoles: ["Hold"], customNote: "" },
+                { id: 105, name: "Hussain Rasheed", activeRoles: ["Arrivals"], customNote: "" },
+                { id: 106, name: "Ali Nizar", activeRoles: ["Arrivals"], customNote: "" }
+            ],
+            operators: [
+                { id: 201, name: "Abdulla Saeed", activeRoles: ["BT2"], customNote: "" },
+                { id: 202, name: "Hussain Didi", activeRoles: [], customNote: "" },
+                { id: 203, name: "Hassan Mamdhooh", activeRoles: [], customNote: "" },
+                { id: 204, name: "Faheem Fathuhee", activeRoles: ["GPU"], customNote: "" }
+            ]
+        };
+
+        let rosterState = JSON.parse(JSON.stringify(defaultData));
+        let isAdminMode = true;
+
+        function showToast(msg, isSuccess = true) {
+            const toast = document.getElementById('toast');
+            document.getElementById('toastMsg').textContent = msg;
+            document.getElementById('toastIcon').className = isSuccess ? "fa-solid fa-circle-check text-emerald-400 text-sm" : "fa-solid fa-triangle-exclamation text-amber-400 text-sm";
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            setTimeout(() => {
+                toast.classList.add('translate-y-20', 'opacity-0');
+            }, 3000);
+        }
+
+        function syncHeaderInputs() {
+            if (!isAdminMode) return;
+            rosterState.flightCode = document.getElementById('flightCode').value;
+            rosterState.flightNoMain = document.getElementById('flightNoMain').value;
+            rosterState.flightDate = document.getElementById('flightDate').value;
+            rosterState.dutyTime = document.getElementById('dutyTime').value;
+            rosterState.checkingTime = document.getElementById('checkingTime').value;
+            rosterState.noteText = document.getElementById('noteText').value;
+
+            // Sync officers inputs
+            rosterState.officers.forEach((off, idx) => {
+                const titleInput = document.getElementById(`offTitle_${idx}`);
+                const nameInput = document.getElementById(`offName_${idx}`);
+                if (titleInput) off.roleTitle = titleInput.value;
+                if (nameInput) off.name = nameInput.value;
+            });
+        }
+
+        function applyModeUI() {
+            const badge = document.getElementById('modeBadge');
+            const toggleText = document.getElementById('toggleAdminText');
+            const banner = document.getElementById('readOnlyBanner');
+            
+            const adminInputs = document.querySelectorAll('.admin-input');
+            const staffTexts = document.querySelectorAll('.staff-text');
+            const adminBtns = document.querySelectorAll('.admin-btn');
+
+            if (isAdminMode) {
+                badge.textContent = "Admin";
+                badge.className = "text-[9px] px-1.5 py-0.5 rounded font-black uppercase tracking-wider bg-blue-600 text-white";
+                toggleText.textContent = "Staff View";
+                banner.classList.add('hidden');
+
+                adminInputs.forEach(el => el.classList.remove('hidden'));
+                staffTexts.forEach(el => el.classList.add('hidden'));
+                adminBtns.forEach(el => el.classList.remove('hidden'));
+            } else {
+                badge.textContent = "Read-Only";
+                badge.className = "text-[9px] px-1.5 py-0.5 rounded font-black uppercase tracking-wider bg-emerald-600 text-white";
+                toggleText.textContent = "Edit Mode";
+                banner.classList.remove('hidden');
+
+                adminInputs.forEach(el => el.classList.add('hidden'));
+                staffTexts.forEach(el => el.classList.add('hidden')); // Keep inputs hidden, staff-card handles view formatting
+                adminBtns.forEach(el => el.classList.add('hidden'));
+            }
+        }
+
+        function renderRoster() {
+            document.getElementById('flightCode').value = rosterState.flightCode;
+            document.getElementById('flightNoMain').value = rosterState.flightNoMain;
+            document.getElementById('flightDate').value = rosterState.flightDate;
+            document.getElementById('dutyTime').value = rosterState.dutyTime;
+            document.getElementById('checkingTime').value = rosterState.checkingTime;
+            document.getElementById('noteText').value = rosterState.noteText;
+
+            document.getElementById('staffFlightCode').textContent = rosterState.flightCode;
+            document.getElementById('staffFlightNoMain').textContent = rosterState.flightNoMain;
+            document.getElementById('staffFlightDate').textContent = rosterState.flightDate;
+            document.getElementById('staffDutyTime').textContent = rosterState.dutyTime;
+            document.getElementById('staffCheckingTime').textContent = rosterState.checkingTime;
+            document.getElementById('staffNoteText').textContent = rosterState.noteText;
+
+            // Render Officers List
+            const officersListEl = document.getElementById('officersList');
+            officersListEl.innerHTML = '';
+            rosterState.officers.forEach((off, idx) => {
+                const row = document.createElement('div');
+                row.className = "flex items-center justify-between gap-1 text-[11px]";
+                row.innerHTML = `
+                    <div class="admin-input flex items-center gap-1 w-full" style="${!isAdminMode ? 'display:none;' : ''}">
+                        <input type="text" id="offTitle_${idx}" value="${off.roleTitle}" oninput="syncHeaderInputs()" class="bg-white/80 text-amber-900 font-bold px-1 py-0.5 rounded border border-amber-300 w-2/5 text-[10px] outline-none">
+                        <input type="text" id="offName_${idx}" value="${off.name}" oninput="syncHeaderInputs()" class="bg-white/80 text-black font-bold px-1.5 py-0.5 rounded border border-amber-300 w-3/5 text-[11px] outline-none">
+                        <button onclick="removeOfficer(${idx})" class="admin-btn text-rose-600 hover:text-rose-800 p-0.5 shrink-0"><i class="fa-solid fa-trash-can text-[9px]"></i></button>
+                    </div>
+                    <div class="staff-text flex justify-between w-full text-[11px] py-0.5 border-b border-amber-200/50" style="${isAdminMode ? 'display:none;' : ''}">
+                        <span class="text-amber-900 font-bold">${off.roleTitle}:</span>
+                        <span class="text-black font-bold">${off.name}</span>
+                    </div>
+                `;
+                officersListEl.appendChild(row);
+            });
+
+            document.getElementById('handlersCount').textContent = rosterState.handlers.length;
+            const hList = document.getElementById('handlersList');
+            hList.innerHTML = '';
+            rosterState.handlers.forEach((h, index) => {
+                hList.appendChild(createStaffCard('handlers', h, index, handlerRoles));
+            });
+
+            document.getElementById('operatorsCount').textContent = rosterState.operators.length;
+            const opList = document.getElementById('operatorsList');
+            opList.innerHTML = '';
+            rosterState.operators.forEach((op, index) => {
+                opList.appendChild(createStaffCard('operators', op, index, operatorRoles));
+            });
+
+            applyModeUI();
+        }
+
+        function addOfficer() {
+            syncHeaderInputs();
+            const title = prompt("Enter Officer Role Title (e.g., Ramp Officer / Asst Ramp Officer):", "Asst Ramp Officer");
+            if (title !== null) {
+                const name = prompt("Enter Officer Name:", "");
+                if (name !== null) {
+                    rosterState.officers.push({ roleTitle: title.trim(), name: name.trim() });
+                    renderRoster();
+                    showToast("Officer added");
+                }
+            }
+        }
+
+        function removeOfficer(index) {
+            syncHeaderInputs();
+            if (rosterState.officers.length <= 1) {
+                alert("You must keep at least one officer.");
+                return;
+            }
+            rosterState.officers.splice(index, 1);
+            renderRoster();
+            showToast("Officer removed");
+        }
+
+        function createStaffCard(type, person, index, roleList) {
+            const card = document.createElement('div');
+            card.className = "bg-slate-50 border border-slate-200 rounded-xl p-2 space-y-1";
+
+            const topRow = document.createElement('div');
+            topRow.className = "flex items-center justify-between gap-2";
+
+            const hasInactiveRole = person.activeRoles.some(r => ['FRL', 'AL', 'SL', 'OFF'].includes(r));
+
+            if (isAdminMode) {
+                const nameInput = document.createElement('input');
+                nameInput.type = "text";
+                nameInput.value = person.name;
+                nameInput.className = `font-bold text-[11px] bg-transparent border-b border-transparent focus:border-slate-400 outline-none w-full py-0.5 ${hasInactiveRole ? 'staff-inactive' : 'text-slate-800'}`;
+                nameInput.onchange = (e) => {
+                    rosterState[type][index].name = e.target.value.trim();
+                };
+
+                const deleteBtn = document.createElement('button');
+                deleteBtn.className = "admin-btn text-slate-400 hover:text-red-500 p-0.5 text-xs transition shrink-0";
+                deleteBtn.innerHTML = `<i class="fa-solid fa-trash-can text-[10px]"></i>`;
+                deleteBtn.onclick = () => removeStaff(type, index);
+
+                topRow.appendChild(nameInput);
+                topRow.appendChild(deleteBtn);
+            } else {
+                const nameSpan = document.createElement('span');
+                nameSpan.className = `font-extrabold text-[11px] py-0.5 ${hasInactiveRole ? 'staff-inactive' : 'text-slate-900'}`;
+                nameSpan.textContent = person.name;
+                topRow.appendChild(nameSpan);
+            }
+
+            const tagsRow = document.createElement('div');
+            tagsRow.className = "flex items-center gap-2 overflow-x-auto no-scrollbar py-0.5 text-[11px]";
+
+            if (isAdminMode) {
+                roleList.forEach(role => {
+                    const isSelected = person.activeRoles.includes(role.id);
+                    const tag = document.createElement('button');
+                    tag.type = "button";
+                    tag.className = `px-1.5 py-0.5 rounded-lg border text-[10px] font-bold transition shrink-0 ${
+                        isSelected 
+                            ? `${role.class} bg-white border-slate-300 shadow-sm scale-105` 
+                            : 'bg-white text-slate-400 border-slate-200 hover:bg-slate-100'
+                    }`;
+                    tag.textContent = role.label;
+                    tag.onclick = () => toggleRole(type, index, role.id);
+                    tagsRow.appendChild(tag);
+                });
+            } else {
+                if (person.activeRoles.length === 0) {
+                    const tag = document.createElement('span');
+                    tag.className = "task-item text-[11px] text-duty";
+                    tag.textContent = "Duty";
+                    tagsRow.appendChild(tag);
+                } else {
+                    person.activeRoles.forEach(rId => {
+                        const roleObj = roleList.find(r => r.id === rId);
+                        if (roleObj) {
+                            const tag = document.createElement('span');
+                            tag.className = `task-item text-[11px] ${roleObj.class}`;
+                            tag.textContent = roleObj.label;
+                            tagsRow.appendChild(tag);
+                        }
+                    });
+                }
+            }
+
+            card.appendChild(topRow);
+            card.appendChild(tagsRow);
+
+            if (isAdminMode) {
+                if (person.activeRoles.includes('Checking') || hasInactiveRole || person.customNote) {
+                    const customNoteDiv = document.createElement('div');
+                    customNoteDiv.className = "pt-0.5 flex items-center gap-1";
+                    const placeholderText = hasInactiveRole ? "e.g. replaced by..." : "e.g. 18:10";
+                    customNoteDiv.innerHTML = `
+                        <span class="text-[8px] text-slate-400 font-bold uppercase">${hasInactiveRole ? 'Note:' : 'Time:'}</span>
+                        <input type="text" value="${person.customNote || ''}" placeholder="${placeholderText}" 
+                               class="bg-white border border-slate-200 text-[10px] font-bold text-slate-700 rounded px-1.5 py-0.5 w-full outline-none focus:border-blue-500"
+                               onchange="updateStaffNote('${type}', ${index}, this.value)">
+                    `;
+                    card.appendChild(customNoteDiv);
+                }
+            } else if (person.customNote) {
+                const noteSpan = document.createElement('div');
+                noteSpan.className = "text-[10px] font-bold text-blue-700 pt-0.5 flex items-center gap-1";
+                noteSpan.innerHTML = `<i class="fa-solid fa-clock text-[8px]"></i> <span>${person.customNote}</span>`;
+                card.appendChild(noteSpan);
+            }
+
+            return card;
+        }
+
+        function toggleRole(type, staffIndex, roleId) {
+            syncHeaderInputs();
+            const person = rosterState[type][staffIndex];
+            if (roleId === 'OFF') {
+                person.activeRoles = person.activeRoles.includes('OFF') ? [] : ['OFF'];
+            } else {
+                person.activeRoles = person.activeRoles.filter(r => r !== 'OFF');
+                const idx = person.activeRoles.indexOf(roleId);
+                if (idx > -1) {
+                    person.activeRoles.splice(idx, 1);
+                } else {
+                    person.activeRoles.push(roleId);
+                }
+            }
+            renderRoster();
+        }
+
+        function updateStaffNote(type, staffIndex, value) {
+            rosterState[type][staffIndex].customNote = value.trim();
+        }
+
+        function addStaff(type) {
+            syncHeaderInputs();
+            const name = prompt(`Enter ${type === 'handlers' ? 'Handler' : 'Operator'} name:`);
+            if (name && name.trim()) {
+                rosterState[type].push({
+                    id: Date.now(),
+                    name: name.trim(),
+                    activeRoles: [],
+                    customNote: ""
+                });
+                renderRoster();
+                showToast("Added new staff member");
+            }
+        }
+
+        function removeStaff(type, index) {
+            syncHeaderInputs();
+            if (confirm("Remove this person from roster?")) {
+                rosterState[type].splice(index, 1);
+                renderRoster();
+                showToast("Staff member removed");
+            }
+        }
+
+        function toggleMode() {
+            isAdminMode = !isAdminMode;
+            renderRoster();
+            showToast(isAdminMode ? "Switched to Admin Mode" : "Switched to Read-Only Staff View");
+        }
+
+        function saveRoster() {
+            syncHeaderInputs();
+            localStorage.setItem('mobile_flight_roster_screen_v6', JSON.stringify(rosterState));
+            showToast("Draft saved locally!");
+        }
+
+        function resetRoster() {
+            if (confirm("Reset roster to default format?")) {
+                rosterState = JSON.parse(JSON.stringify(defaultData));
+                rosterState.flightDate = getCurrentFormattedDate();
+                localStorage.removeItem('mobile_flight_roster_screen_v6');
+                renderRoster();
+                showToast("Form reset to default");
+            }
+        }
+
+        function exportImage() {
+            syncHeaderInputs();
+            showToast("Preparing screen image...");
+            const previousMode = isAdminMode;
+            isAdminMode = false;
+            renderRoster();
+
+            setTimeout(() => {
+                const cardEl = document.getElementById('rosterExportCard');
+
+                html2canvas(cardEl, {
+                    scale: 2, // High-res retina screen capture multiplier
+                    backgroundColor: '#ffffff',
+                    useCORS: true
+                }).then(canvas => {
+                    const filename = `Flight_Roster_${rosterState.flightNoMain}_${Date.now()}.png`;
+                    
+                    canvas.toBlob(blob => {
+                        const file = new File([blob], filename, { type: 'image/png' });
+                        
+                        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                            navigator.share({
+                                files: [file],
+                                title: 'Flight Duty Roster',
+                                text: `Roster for Flight ${rosterState.flightCode}`
+                            }).then(() => {
+                                showToast("Shared / Saved to Gallery!");
+                            }).catch((error) => {
+                                if (error.name !== 'AbortError') {
+                                    triggerDownload(canvas, filename);
+                                }
+                            });
+                        } else {
+                            triggerDownload(canvas, filename);
+                        }
+                    }, 'image/png');
+
+                    isAdminMode = previousMode;
+                    renderRoster();
+                }).catch(() => {
+                    isAdminMode = previousMode;
+                    renderRoster();
+                    showToast("Failed to generate image", false);
+                });
+            }, 200);
+        }
+
+        function triggerDownload(canvas, filename) {
+            const link = document.createElement('a');
+            link.download = filename;
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+            showToast("Image saved!");
+        }
+
+        window.onload = () => {
+            const saved = localStorage.getItem('mobile_flight_roster_screen_v6');
+            if (saved) {
+                try { 
+                    rosterState = JSON.parse(saved); 
+                } catch(e) {}
+            }
+            
+            // Always overwrite flightDate with current date on fresh page load
+            rosterState.flightDate = getCurrentFormattedDate();
+            
+            renderRoster();
+        };
+    </script>
+</body>
+</html>
